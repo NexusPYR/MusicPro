@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="?attr/colorSurface">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="设置"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp"/>
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switch_pause_unplug"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="耳机拔出自动暂停"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="当耳机或蓝牙断开时自动暂停播放"
+        android:textColor="?android:attr/textColorSecondary"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="20dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#CCCCCC"
+        android:layout_marginBottom="20dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="外观主题"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="12dp"/>
+
+    <RadioGroup
+        android:id="@+id/rg_theme"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/rb_theme_light"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="浅色"
+            android:textColor="?android:attr/textColorPrimary"/>
+
+        <RadioButton
+            android:id="@+id/rb_theme_dark"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="深色"
+            android:textColor="?android:attr/textColorPrimary"/>
+
+        <RadioButton
+            android:id="@+id/rb_theme_system"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="跟随系统"
+            android:textColor="?android:attr/textColorPrimary"/>
+    </RadioGroup>
+
+</LinearLayout>
