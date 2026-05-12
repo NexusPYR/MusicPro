@@ -38,7 +38,3 @@ Music Pro 是一款专注于提供纯粹、高解析度本地听歌体验的 And
 * **Java**: JDK 11 或更高版本
 * **测试设备**: 运行 Android 13 (API 33) 或更高版本的真机（推荐三星、华为、小米等现代机型）以获得完整的媒体权限体验。
 
-### 运行步骤
-1. 克隆本项目到本地：
-   ```bash
-   git clone [https://github.com/NexusPYR/MusicPro.git](https://github.com/NexusPYR/MusicPro.git)
