@@ -30,15 +30,6 @@ Music Pro 是一款专注于提供纯粹、高解析度本地听歌体验的 And
 
 ---
 
-## 📸 界面预览 (Screenshots)
-
-*(提示：将你在真机上截取的界面图片放到项目根目录的 `images` 文件夹下，并将下方链接替换即可)*
-
-|<img src="images/screenshot_main.jpg" width="250"/>|<img src="images/screenshot_player.jpg" width="250"/>|<img src="images/screenshot_playlist.jpg" width="250"/>|
-|:---:|:---:|:---:|
-| **主界面与悬浮播控条** | **全屏黑胶播放页** | **设置与深浅色模式** |
-
----
 
 ## 🚀 构建与运行 (Getting Started)
 
