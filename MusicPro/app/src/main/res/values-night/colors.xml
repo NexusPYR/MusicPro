@@ -9,4 +9,8 @@
     <color name="player_text_tertiary">#808080</color>
     <color name="player_icon_tint">#E0E0E0</color>
     <color name="player_cover_stroke">#33FFFFFF</color>
+
+    <!-- Glassmorphism Colors - Higher opacity for readability -->
+    <color name="glass_fill">#801A1A1A</color>
+    <color name="glass_stroke">#40FFFFFF</color>
 </resources>

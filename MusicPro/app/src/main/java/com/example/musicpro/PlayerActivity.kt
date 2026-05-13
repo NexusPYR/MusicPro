@@ -11,18 +11,18 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 
-class PlayerActivity : AppCompatActivity() {
+class PlayerActivity : BaseActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -39,6 +39,7 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var seekBar: SeekBar
 
     private lateinit var playerContent: View
+    private lateinit var playerGlassContainer: ViewGroup
     private lateinit var dimView: View
     private var initialY = 0f
     private var isDragging = false
@@ -70,7 +71,11 @@ class PlayerActivity : AppCompatActivity() {
         tvTimeTotal = findViewById(R.id.tv_time_total)
         seekBar = findViewById(R.id.seek_bar)
         playerContent = findViewById(R.id.player_content)
+        playerGlassContainer = findViewById(R.id.player_glass_container)
         dimView = findViewById(R.id.dim_view)
+        
+        // 🌟 Apply targeted glass effect to the glass container (Children in player_content remain sharp)
+        GlassUtils.applyGlassEffect(playerGlassContainer, blurRadius = 45f, cornerRadius = 0f)
 
         // 初始化旋转动画 (匀速，无限循环)
         rotationAnimator = ObjectAnimator.ofFloat(ivRecordCover, "rotation", 0f, 360f).apply {
@@ -107,25 +112,25 @@ class PlayerActivity : AppCompatActivity() {
                 if (isDragging || (deltaY > 30 && !isTouchOnView(ev, seekBar))) {
                     isDragging = true
                     if (deltaY > 0) {
-                        playerContent.translationY = deltaY
-                        val progress = deltaY / playerContent.height
-                        dimView.alpha = (1f - progress).coerceIn(0f, 1f)
+                        playerGlassContainer.translationY = deltaY
+                        val progress = deltaY / playerGlassContainer.height
+                        dimView.alpha = (0.4f - (progress * 0.4f)).coerceIn(0f, 0.4f)
                     } else {
-                        playerContent.translationY = 0f
-                        dimView.alpha = 1f
+                        playerGlassContainer.translationY = 0f
+                        dimView.alpha = 0.4f
                     }
-                    return true // 拦截事件，不传递给子 View
+                    return true 
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isDragging) {
                     val deltaY = ev.rawY - initialY
-                    if (deltaY > playerContent.height * 0.4f) {
+                    if (deltaY > playerGlassContainer.height * 0.4f) {
                         finish()
                     } else {
                         // 回弹动画
-                        playerContent.animate().translationY(0f).setDuration(250).start()
-                        dimView.animate().alpha(1f).setDuration(250).start()
+                        playerGlassContainer.animate().translationY(0f).setDuration(250).start()
+                        dimView.animate().alpha(0.4f).setDuration(250).start()
                     }
                     isDragging = false
                     return true

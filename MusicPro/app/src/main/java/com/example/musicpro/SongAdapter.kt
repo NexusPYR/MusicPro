@@ -53,10 +53,29 @@ class SongAdapter(
         fun bind(song: Song, click: (Song) -> Unit, longClick: (Song) -> Unit) {
             tvTitle.text = song.title
             tvArtist.text = song.artist
+            
+            // 异步加载逻辑：先设占位图，再在后台加载
             if (song.cover != null) {
                 ivCover.setImageBitmap(song.cover)
             } else {
                 ivCover.setImageResource(android.R.drawable.ic_menu_gallery)
+                // 启动后台线程加载缩略图
+                val context = itemView.context
+                Thread {
+                    try {
+                        val uri = song.uri
+                        val bitmap = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            context.contentResolver.loadThumbnail(uri, android.util.Size(120, 120), null)
+                        } else null
+                        
+                        if (bitmap != null) {
+                            // 通过反射或其他方式更新内存中的 song 对象（这里简单起见直接设置到 View）
+                            ivCover.post {
+                                ivCover.setImageBitmap(bitmap)
+                            }
+                        }
+                    } catch (e: Exception) {}
+                }.start()
             }
             
             ivFavorite.visibility = if (song.isFavorite) View.VISIBLE else View.GONE

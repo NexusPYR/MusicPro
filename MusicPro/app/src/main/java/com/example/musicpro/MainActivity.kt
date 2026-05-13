@@ -11,6 +11,11 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
+import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import androidx.core.net.toUri
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
@@ -32,13 +37,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -49,13 +51,18 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.common.util.concurrent.ListenableFuture
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.media3.common.Player
+import androidx.media3.common.MediaMetadata
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
 
     private lateinit var topBar: ViewGroup
+    private lateinit var topBarContainer: ViewGroup
+    private lateinit var bottomPlayerContainer: ViewGroup
+    
     private lateinit var btnPrev: ImageView
     private lateinit var btnNext: ImageView
     private lateinit var btnPlayPause: ImageView
@@ -65,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSettings: ImageView
     private lateinit var ivMiniCover: ImageView
     private lateinit var tvMiniTitle: TextView
+    private lateinit var tvEmptyState: TextView
     private lateinit var rvSongs: RecyclerView
     private lateinit var libraryAdapter: SongAdapter
     private lateinit var btnShowFavorites: ImageView
@@ -107,31 +115,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        applySavedTheme()
+        // 1. 优先读取并应用主题，确保 super.onCreate 拿到的是正确的资源
+        val prefs = getSharedPreferences("music_pro", Context.MODE_PRIVATE)
+        val themeMode = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        if (AppCompatDelegate.getDefaultNightMode() != themeMode) {
+            AppCompatDelegate.setDefaultNightMode(themeMode)
+        }
+        
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 检查是否有主题切换动画
-        if (themeScreenshot != null) {
+        // 2. 主题切换动画逻辑 (保持不变)
+        if (themeScreenshot != null && !themeScreenshot!!.isRecycled) {
             val rootView = window.decorView as ViewGroup
             val coverImg = ImageView(this)
             coverImg.setImageBitmap(themeScreenshot)
             rootView.addView(coverImg, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
             
             val screenshotToRelease = themeScreenshot
-            themeScreenshot = null // 用完置空
+            themeScreenshot = null 
             
             coverImg.post {
-                val finalRadius = Math.hypot(rootView.width.toDouble(), rootView.height.toDouble()).toFloat()
-                val anim = ViewAnimationUtils.createCircularReveal(coverImg, themeCenterX, themeCenterY, finalRadius, 0f)
-                anim.duration = 600
-                anim.addListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        rootView.removeView(coverImg)
-                        screenshotToRelease?.recycle()
-                    }
-                })
-                anim.start()
+                if (rootView.width > 0 && rootView.height > 0) {
+                    val finalRadius = Math.hypot(rootView.width.toDouble(), rootView.height.toDouble()).toFloat()
+                    val anim = ViewAnimationUtils.createCircularReveal(coverImg, themeCenterX, themeCenterY, finalRadius, 0f)
+                    anim.duration = 600
+                    anim.addListener(object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) {
+                            rootView.removeView(coverImg)
+                            screenshotToRelease?.recycle()
+                        }
+                    })
+                    anim.start()
+                } else {
+                    rootView.removeView(coverImg)
+                    screenshotToRelease?.recycle()
+                }
             }
         }
 
@@ -144,12 +163,20 @@ class MainActivity : AppCompatActivity() {
         ivMiniCover = findViewById(R.id.iv_mini_cover)
         bottomPlayerBar = findViewById(R.id.bottom_player_bar)
         tvMiniTitle = findViewById(R.id.tv_mini_title)
+        tvEmptyState = findViewById(R.id.tv_empty_state)
         rvSongs = findViewById(R.id.rv_songs)
         btnShowFavorites = findViewById(R.id.btn_show_favorites)
         searchView = findViewById(R.id.search_view)
+        
         topBar = findViewById(R.id.top_bar)
+        topBarContainer = findViewById(R.id.top_bar_container)
+        bottomPlayerContainer = findViewById(R.id.bottom_player_container)
 
         setupSearch()
+        
+        // 🌟 Apply targeted glass effects (Children remain sharp)
+        GlassUtils.applyGlassEffect(topBarContainer, blurRadius = 25f, cornerRadius = 0f)
+        GlassUtils.applyGlassEffect(bottomPlayerContainer, blurRadius = 35f, cornerRadius = 100f)
 
         bottomPlayerBar.setOnClickListener {
             val intent = Intent(this, PlayerActivity::class.java)
@@ -182,6 +209,7 @@ class MainActivity : AppCompatActivity() {
         }).attachToRecyclerView(rvSongs)
 
         loadLibraryFromDisk()
+        updateLibraryView() // Force refresh to ensure RecyclerView renders even if disk load is partial or empty
 
         btnScanLocal.setOnClickListener { requestPermissionsAndScan() }
         btnPlaylist.setOnClickListener { showPlaybackQueueDialog() }
@@ -230,11 +258,7 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun applySavedTheme() {
-        val themeMode = getSharedPreferences("music_pro", Context.MODE_PRIVATE)
-            .getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        AppCompatDelegate.setDefaultNightMode(themeMode)
-    }
+
 
     private fun setupController() {
         val controller = mediaController ?: return
@@ -274,25 +298,60 @@ class MainActivity : AppCompatActivity() {
         
         val song = masterSongList.find { it.id.toString() == currentItem?.mediaId }
         tvMiniTitle.text = song?.title ?: currentItem?.mediaMetadata?.title ?: "准备播放..."
-        if (song?.cover != null) ivMiniCover.setImageBitmap(song.cover)
-        else ivMiniCover.setImageResource(android.R.drawable.ic_media_play)
+        
+        // 异步加载 Mini 播放器封面
+        if (song?.cover != null) {
+            ivMiniCover.setImageBitmap(song.cover)
+        } else {
+            ivMiniCover.setImageResource(android.R.drawable.ic_media_play)
+            val uri = currentItem?.localConfiguration?.uri
+            if (uri != null) {
+                Thread {
+                    try {
+                        val retriever = MediaMetadataRetriever()
+                        retriever.setDataSource(this, uri)
+                        val artwork = retriever.embeddedPicture
+                        if (artwork != null) {
+                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(artwork, 0, artwork.size)
+                            ivMiniCover.post { ivMiniCover.setImageBitmap(bitmap) }
+                        }
+                        retriever.release()
+                    } catch (e: Exception) {}
+                }.start()
+            }
+        }
     }
 
     private fun updateLibraryView() {
-        var filteredList = masterSongList.toList()
-
-        if (isShowingFavorites) {
-            filteredList = filteredList.filter { it.isFavorite }
-        }
-
-        if (currentSearchQuery.isNotEmpty()) {
-            filteredList = filteredList.filter { song ->
-                song.title.contains(currentSearchQuery, ignoreCase = true) ||
-                        song.artist?.contains(currentSearchQuery, ignoreCase = true) == true
+        val filteredList = if (isShowingFavorites) {
+            masterSongList.filter { it.isFavorite }
+        } else {
+            masterSongList.toList()
+        }.let { list ->
+            if (currentSearchQuery.isNotEmpty()) {
+                list.filter { song ->
+                    song.title.contains(currentSearchQuery, ignoreCase = true) ||
+                            song.artist?.contains(currentSearchQuery, ignoreCase = true) == true
+                }
+            } else {
+                list
             }
         }
 
-        libraryAdapter.updateData(filteredList)
+        runOnUiThread {
+            if (filteredList.isEmpty()) {
+                tvEmptyState.visibility = View.VISIBLE
+                rvSongs.visibility = View.GONE
+            } else {
+                tvEmptyState.visibility = View.GONE
+                rvSongs.visibility = View.VISIBLE
+                rvSongs.alpha = 1.0f
+                libraryAdapter.updateData(filteredList)
+                // 强制请求布局和刷新
+                rvSongs.requestLayout()
+                rvSongs.invalidate()
+            }
+        }
     }
 
     private fun showLyricsDialog() {
@@ -353,50 +412,87 @@ class MainActivity : AppCompatActivity() {
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             if (newMode != currentTheme) {
-                // 准备动画数据
-                val location = IntArray(2)
-                group.findViewById<View>(checkedId).getLocationInWindow(location)
-                themeCenterX = location[0] + group.findViewById<View>(checkedId).width / 2
-                themeCenterY = location[1] + group.findViewById<View>(checkedId).height / 2
+                val checkedView = group.findViewById<View>(checkedId)
+                if (checkedView != null) {
+                    val location = IntArray(2)
+                    checkedView.getLocationInWindow(location)
+                    themeCenterX = location[0] + checkedView.width / 2
+                    themeCenterY = location[1] + checkedView.height / 2
+                }
                 
                 val rootView = window.decorView
-                themeScreenshot = Bitmap.createBitmap(rootView.width, rootView.height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(themeScreenshot!!)
-                rootView.draw(canvas)
-
-                prefs.edit().putInt("theme_mode", newMode).apply()
-                dialog.dismiss()
-                
-                rootView.postDelayed({
-                    AppCompatDelegate.setDefaultNightMode(newMode)
-                }, 100)
+                if (rootView.width > 0 && rootView.height > 0) {
+                    val bitmap = Bitmap.createBitmap(rootView.width, rootView.height, Bitmap.Config.ARGB_8888)
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            PixelCopy.request(window, bitmap, { copyResult ->
+                                if (copyResult == PixelCopy.SUCCESS) {
+                                    themeScreenshot = bitmap
+                                }
+                                proceedWithThemeChange(prefs, newMode, dialog)
+                            }, Handler(Looper.getMainLooper()))
+                        } else {
+                            val canvas = Canvas(bitmap)
+                            rootView.draw(canvas)
+                            themeScreenshot = bitmap
+                            proceedWithThemeChange(prefs, newMode, dialog)
+                        }
+                    } catch (e: Exception) {
+                        proceedWithThemeChange(prefs, newMode, dialog)
+                    }
+                } else {
+                    proceedWithThemeChange(prefs, newMode, dialog)
+                }
             }
         }
         dialog.setContentView(view)
         dialog.show()
     }
 
+    private fun proceedWithThemeChange(prefs: android.content.SharedPreferences, newMode: Int, dialog: BottomSheetDialog) {
+        prefs.edit().putInt("theme_mode", newMode).apply()
+        dialog.dismiss()
+        
+        // 确保在主线程应用并重启
+        runOnUiThread {
+            AppCompatDelegate.setDefaultNightMode(newMode)
+            recreate()
+        }
+    }
+
     private fun scanLocalMusic() {
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val songs = mutableListOf<Song>()
-        contentResolver.query(collection, arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DISPLAY_NAME, MediaStore.Audio.Media.ARTIST), "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.DATE_ADDED} DESC")?.use { cursor ->
+        val projection = arrayOf(
+            MediaStore.Audio.Media._ID,
+            MediaStore.Audio.Media.TITLE,
+            MediaStore.Audio.Media.ARTIST,
+            MediaStore.Audio.Media.ALBUM_ID
+        )
+        
+        contentResolver.query(collection, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.DATE_ADDED} DESC")?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+            
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(0)
-                val uri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
-                val cover = try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) contentResolver.loadThumbnail(uri, Size(300, 300), null)
-                    else null
-                } catch (e: Exception) {
-                    null
-                }
-                songs.add(Song(id, cursor.getString(1), cursor.getString(2) ?: "未知", uri, cover))
+                val id = cursor.getLong(idColumn)
+                val title = cursor.getString(titleColumn) ?: "未知歌曲"
+                val artist = cursor.getString(artistColumn) ?: "未知艺术家"
+                val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                
+                songs.add(Song(id, title, artist, uri, null))
             }
         }
+        
         if (songs.isNotEmpty()) {
             masterSongList.clear()
             masterSongList.addAll(songs)
             saveLibraryToDisk(masterSongList)
             updateLibraryView()
+            Toast.makeText(this, "扫描完成，找到 ${songs.size} 首歌曲", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "未找到本地音乐文件", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -519,12 +615,8 @@ class MainActivity : AppCompatActivity() {
                 val id = o.getLong("id")
                 val uri = o.getString("uri").toUri()
                 val isFavorite = o.optBoolean("isFavorite", false)
-                val cover = try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) contentResolver.loadThumbnail(uri, Size(300, 300), null) else null
-                } catch (e: Exception) {
-                    null
-                }
-                s.add(Song(id, o.getString("title"), o.getString("artist"), uri, cover, isFavorite))
+                // Skip thumbnail loading on main thread to prevent UI lag/blank screen
+                s.add(Song(id, o.getString("title"), o.getString("artist"), uri, null, isFavorite))
             }
             masterSongList.clear()
             masterSongList.addAll(s)
