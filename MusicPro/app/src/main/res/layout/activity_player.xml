@@ -1,129 +1,146 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/player_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F4F6F9"> <ImageView
-    android:id="@+id/btn_down"
-    android:layout_width="48dp"
-    android:layout_height="48dp"
-    android:layout_marginStart="16dp"
-    android:layout_marginTop="32dp"
-    android:padding="12dp"
-    android:background="?attr/selectableItemBackgroundBorderless"
-    android:src="@android:drawable/arrow_down_float"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintTop_toTopOf="parent"
-    app:tint="#333333" />
+    android:layout_height="match_parent">
 
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/iv_record_cover"
-        android:layout_width="280dp"
-        android:layout_height="280dp"
-        android:layout_marginTop="64dp"
-        android:background="#E0E0E0"
-        android:scaleType="centerCrop"
-        android:src="@android:drawable/ic_media_play"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btn_down"
-        app:shapeAppearanceOverlay="@style/CornerFamily.Rounded"
-        app:strokeColor="#33000000"
-        app:strokeWidth="10dp" /> <TextView
-        android:id="@+id/tv_player_title"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="32dp"
-        android:layout_marginBottom="8dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="歌曲名称"
-        android:textColor="#222222"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toTopOf="@+id/tv_player_artist"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <TextView
-        android:id="@+id/tv_player_artist"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="32dp"
-        android:layout_marginBottom="48dp"
-        android:text="歌手"
-        android:textColor="#666666"
-        android:textSize="16sp"
-        app:layout_constraintBottom_toTopOf="@+id/seek_bar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <SeekBar
-        android:id="@+id/seek_bar"
+    <View
+        android:id="@+id/dim_view"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintBottom_toTopOf="@+id/tv_time_current" />
+        android:layout_height="match_parent"
+        android:background="#99000000" />
 
-    <TextView
-        android:id="@+id/tv_time_current"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
-        android:layout_marginBottom="32dp"
-        android:text="00:00"
-        android:textColor="#888888"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toTopOf="@+id/btn_player_play_pause"
-        app:layout_constraintStart_toStartOf="parent" />
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/player_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/player_background">
 
-    <TextView
-        android:id="@+id/tv_time_total"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="32dp"
-        android:text="00:00"
-        android:textColor="#888888"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="@+id/tv_time_current"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tv_time_current" />
+        <ImageView
+            android:id="@+id/btn_down"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="32dp"
+            android:padding="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/arrow_down_float"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/player_icon_tint" />
 
-    <ImageView
-        android:id="@+id/btn_player_play_pause"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:layout_marginBottom="48dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_media_play"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:tint="#333333" />
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/iv_record_cover"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:layout_marginTop="64dp"
+            android:background="#E0E0E0"
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/ic_media_play"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/btn_down"
+            app:shapeAppearanceOverlay="@style/CornerFamily.Rounded"
+            app:strokeColor="@color/player_cover_stroke"
+            app:strokeWidth="10dp" />
 
-    <ImageView
-        android:id="@+id/btn_player_prev"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="32dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_media_previous"
-        app:layout_constraintBottom_toBottomOf="@+id/btn_player_play_pause"
-        app:layout_constraintEnd_toStartOf="@+id/btn_player_play_pause"
-        app:layout_constraintTop_toTopOf="@+id/btn_player_play_pause"
-        app:tint="#333333" />
+        <TextView
+            android:id="@+id/tv_player_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="32dp"
+            android:layout_marginBottom="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="歌曲名称"
+            android:textColor="@color/player_text_primary"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toTopOf="@+id/tv_player_artist"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
-    <ImageView
-        android:id="@+id/btn_player_next"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="32dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_media_next"
-        app:layout_constraintBottom_toBottomOf="@+id/btn_player_play_pause"
-        app:layout_constraintStart_toEndOf="@+id/btn_player_play_pause"
-        app:layout_constraintTop_toTopOf="@+id/btn_player_play_pause"
-        app:tint="#333333" />
+        <TextView
+            android:id="@+id/tv_player_artist"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="32dp"
+            android:layout_marginBottom="48dp"
+            android:text="歌手"
+            android:textColor="@color/player_text_secondary"
+            android:textSize="16sp"
+            app:layout_constraintBottom_toTopOf="@+id/seek_bar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <SeekBar
+            android:id="@+id/seek_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp"
+            app:layout_constraintBottom_toTopOf="@+id/tv_time_current" />
+
+        <TextView
+            android:id="@+id/tv_time_current"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:layout_marginBottom="32dp"
+            android:text="00:00"
+            android:textColor="@color/player_text_tertiary"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toTopOf="@+id/btn_player_play_pause"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_time_total"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="32dp"
+            android:text="00:00"
+            android:textColor="@color/player_text_tertiary"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@+id/tv_time_current"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/tv_time_current" />
+
+        <ImageView
+            android:id="@+id/btn_player_play_pause"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginBottom="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_play"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:tint="@color/player_icon_tint" />
+
+        <ImageView
+            android:id="@+id/btn_player_prev"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_previous"
+            app:layout_constraintBottom_toBottomOf="@+id/btn_player_play_pause"
+            app:layout_constraintEnd_toStartOf="@+id/btn_player_play_pause"
+            app:layout_constraintTop_toTopOf="@+id/btn_player_play_pause"
+            app:tint="@color/player_icon_tint" />
+
+        <ImageView
+            android:id="@+id/btn_player_next"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_media_next"
+            app:layout_constraintBottom_toBottomOf="@+id/btn_player_play_pause"
+            app:layout_constraintStart_toEndOf="@+id/btn_player_play_pause"
+            app:layout_constraintTop_toTopOf="@+id/btn_player_play_pause"
+            app:tint="@color/player_icon_tint" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</FrameLayout>

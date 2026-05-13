@@ -4,10 +4,13 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.ComponentName
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
+import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.SeekBar
@@ -35,6 +38,11 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tvTimeTotal: TextView
     private lateinit var seekBar: SeekBar
 
+    private lateinit var playerContent: View
+    private lateinit var dimView: View
+    private var initialY = 0f
+    private var isDragging = false
+
     // 旋转动画器
     private var rotationAnimator: ObjectAnimator? = null
     // 更新进度条的定时器
@@ -61,6 +69,8 @@ class PlayerActivity : AppCompatActivity() {
         tvTimeCurrent = findViewById(R.id.tv_time_current)
         tvTimeTotal = findViewById(R.id.tv_time_total)
         seekBar = findViewById(R.id.seek_bar)
+        playerContent = findViewById(R.id.player_content)
+        dimView = findViewById(R.id.dim_view)
 
         // 初始化旋转动画 (匀速，无限循环)
         rotationAnimator = ObjectAnimator.ofFloat(ivRecordCover, "rotation", 0f, 360f).apply {
@@ -82,6 +92,64 @@ class PlayerActivity : AppCompatActivity() {
             },
             ContextCompat.getMainExecutor(this)
         )
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                initialY = ev.rawY
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val currentY = ev.rawY
+                val deltaY = currentY - initialY
+                
+                // 只有当不是在 SeekBar 上操作且有明显向下滑动趋势时才拦截
+                if (isDragging || (deltaY > 30 && !isTouchOnView(ev, seekBar))) {
+                    isDragging = true
+                    if (deltaY > 0) {
+                        playerContent.translationY = deltaY
+                        val progress = deltaY / playerContent.height
+                        dimView.alpha = (1f - progress).coerceIn(0f, 1f)
+                    } else {
+                        playerContent.translationY = 0f
+                        dimView.alpha = 1f
+                    }
+                    return true // 拦截事件，不传递给子 View
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (isDragging) {
+                    val deltaY = ev.rawY - initialY
+                    if (deltaY > playerContent.height * 0.4f) {
+                        finish()
+                    } else {
+                        // 回弹动画
+                        playerContent.animate().translationY(0f).setDuration(250).start()
+                        dimView.animate().alpha(1f).setDuration(250).start()
+                    }
+                    isDragging = false
+                    return true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isTouchOnView(ev: MotionEvent, view: View): Boolean {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        val rect = Rect(location[0], location[1], location[0] + view.width, location[1] + view.height)
+        return rect.contains(ev.rawX.toInt(), ev.rawY.toInt())
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.stay, R.anim.slide_out_down)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        super.onBackPressed()
     }
 
     private fun setupController() {

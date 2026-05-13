@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="md_theme_primary">#9FA8DA</color>
+
+    <!-- Player Colors -->
+    <color name="player_background">#121212</color>
+    <color name="player_text_primary">#FFFFFF</color>
+    <color name="player_text_secondary">#BDBDBD</color>
+    <color name="player_text_tertiary">#808080</color>
+    <color name="player_icon_tint">#E0E0E0</color>
+    <color name="player_cover_stroke">#33FFFFFF</color>
+</resources>

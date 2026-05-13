@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 class SongAdapter(
@@ -26,9 +27,12 @@ class SongAdapter(
     override fun getItemCount(): Int = songList.size
 
     fun updateData(newSongs: List<Song>) {
+        val diffCallback = SongDiffCallback(songList, newSongs)
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        
         songList.clear()
         songList.addAll(newSongs)
-        notifyDataSetChanged()
+        diffResult.dispatchUpdatesTo(this)
     }
     
     fun getSongs(): List<Song> {
@@ -44,7 +48,7 @@ class SongAdapter(
         private val tvTitle: TextView = itemView.findViewById(R.id.tv_song_title)
         private val tvArtist: TextView = itemView.findViewById(R.id.tv_artist)
         private val ivCover: ImageView = itemView.findViewById(R.id.iv_cover)
-        private val ivFavorite: ImageView = itemView.findViewById(R.id.iv_favorite) // 🌟 获取收藏图标
+        private val ivFavorite: ImageView = itemView.findViewById(R.id.iv_favorite)
 
         fun bind(song: Song, click: (Song) -> Unit, longClick: (Song) -> Unit) {
             tvTitle.text = song.title
@@ -55,11 +59,30 @@ class SongAdapter(
                 ivCover.setImageResource(android.R.drawable.ic_menu_gallery)
             }
             
-            // 🌟 根据收藏状态显示或隐藏图标
             ivFavorite.visibility = if (song.isFavorite) View.VISIBLE else View.GONE
 
             itemView.setOnClickListener { click(song) }
             itemView.setOnLongClickListener { longClick(song); true }
+        }
+    }
+
+    class SongDiffCallback(
+        private val oldList: List<Song>,
+        private val newList: List<Song>
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize(): Int = oldList.size
+        override fun getNewListSize(): Int = newList.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldList[oldItemPosition].id == newList[newItemPosition].id
+        }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            val oldSong = oldList[oldItemPosition]
+            val newSong = newList[newItemPosition]
+            return oldSong.title == newSong.title &&
+                    oldSong.artist == newSong.artist &&
+                    oldSong.isFavorite == newSong.isFavorite
         }
     }
 }
