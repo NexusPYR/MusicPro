@@ -17,11 +17,14 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.transition.TransitionManager
 import android.util.Size
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewAnimationUtils
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.RadioGroup
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
 
+    private lateinit var topBar: ViewGroup
     private lateinit var btnPrev: ImageView
     private lateinit var btnNext: ImageView
     private lateinit var btnPlayPause: ImageView
@@ -143,6 +147,7 @@ class MainActivity : AppCompatActivity() {
         rvSongs = findViewById(R.id.rv_songs)
         btnShowFavorites = findViewById(R.id.btn_show_favorites)
         searchView = findViewById(R.id.search_view)
+        topBar = findViewById(R.id.top_bar)
 
         setupSearch()
 
@@ -157,12 +162,10 @@ class MainActivity : AppCompatActivity() {
             onItemClick = { song ->
                 val controller = mediaController
                 if (controller != null && controller.currentMediaItem?.mediaId == song.id.toString()) {
-                    // 如果点击的是正在播放的歌曲，直接跳转到详情页
                     val intent = Intent(this, PlayerActivity::class.java)
                     startActivity(intent)
                     overridePendingTransition(R.anim.slide_in_up, R.anim.stay)
                 } else {
-                    // 否则从头播放该歌曲
                     playFromLibrary(song)
                 }
             },
@@ -201,6 +204,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSearch() {
+        searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
+            TransitionManager.beginDelayedTransition(topBar)
+            if (hasFocus) {
+                btnScanLocal.visibility = View.GONE
+                btnShowFavorites.visibility = View.GONE
+                btnSettings.visibility = View.GONE
+            } else {
+                btnScanLocal.visibility = View.VISIBLE
+                btnShowFavorites.visibility = View.VISIBLE
+                btnSettings.visibility = View.VISIBLE
+            }
+        }
+
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
@@ -223,7 +239,6 @@ class MainActivity : AppCompatActivity() {
     private fun setupController() {
         val controller = mediaController ?: return
         
-        // 立即同步当前播放状态，防止 Activity 重建后 UI 归零
         syncMiniPlayerUI(controller)
 
         controller.addListener(object : Player.Listener {
@@ -516,6 +531,22 @@ class MainActivity : AppCompatActivity() {
             updateLibraryView()
         } catch (e: Exception) {
         }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val v = currentFocus
+            if (v != null && (v is SearchView.SearchAutoComplete || v is android.widget.EditText)) {
+                val outRect = android.graphics.Rect()
+                v.getGlobalVisibleRect(outRect)
+                if (!outRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    v.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onDestroy() {
