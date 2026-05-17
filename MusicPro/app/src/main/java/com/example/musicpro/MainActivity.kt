@@ -32,6 +32,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
@@ -40,6 +41,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
+import androidx.documentfile.provider.DocumentFile
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -70,13 +72,25 @@ class MainActivity : BaseActivity() {
     private lateinit var bottomPlayerBar: View
     private lateinit var btnScanLocal: Button
     private lateinit var btnSettings: ImageView
+    private lateinit var btnEditList: ImageView
     private lateinit var ivMiniCover: ImageView
     private lateinit var tvMiniTitle: TextView
     private lateinit var tvEmptyState: TextView
     private lateinit var rvSongs: RecyclerView
+    private lateinit var pbScanning: ProgressBar
     private lateinit var libraryAdapter: SongAdapter
     private lateinit var btnShowFavorites: ImageView
     private lateinit var searchView: SearchView
+    private lateinit var btnSearchIcon: ImageView
+    private lateinit var btnBackSearch: View
+
+    private lateinit var multiSelectContainer: ViewGroup
+    private lateinit var tvSelectedCount: TextView
+    private lateinit var btnSelectAll: Button
+    private lateinit var btnBatchDelete: ImageView
+    private lateinit var btnBatchAddPlaylist: ImageView
+    private lateinit var btnBatchFavorite: ImageView
+    private lateinit var btnExitMultiSelect: View
 
     private var isShowingFavorites = false
     private var masterSongList = mutableListOf<Song>()
@@ -111,7 +125,13 @@ class MainActivity : BaseActivity() {
         } else {
             permissions[Manifest.permission.READ_EXTERNAL_STORAGE] == true
         }
-        if (audioGranted) scanLocalMusic()
+        if (audioGranted) showScanOptionsDialog()
+    }
+
+    private val pickFolderLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let { scanSpecificFolder(it) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -160,13 +180,25 @@ class MainActivity : BaseActivity() {
         btnScanLocal = findViewById(R.id.btn_scan_local)
         btnPlaylist = findViewById(R.id.btn_playlist)
         btnSettings = findViewById(R.id.btn_settings)
+        btnEditList = findViewById(R.id.btn_edit_list)
         ivMiniCover = findViewById(R.id.iv_mini_cover)
         bottomPlayerBar = findViewById(R.id.bottom_player_bar)
         tvMiniTitle = findViewById(R.id.tv_mini_title)
         tvEmptyState = findViewById(R.id.tv_empty_state)
         rvSongs = findViewById(R.id.rv_songs)
+        pbScanning = findViewById<ProgressBar>(R.id.pb_scanning)
         btnShowFavorites = findViewById(R.id.btn_show_favorites)
         searchView = findViewById(R.id.search_view)
+        btnSearchIcon = findViewById(R.id.btn_search_icon)
+        btnBackSearch = findViewById(R.id.btn_back_search)
+        
+        multiSelectContainer = findViewById(R.id.multi_select_container)
+        tvSelectedCount = findViewById(R.id.tv_selected_count)
+        btnSelectAll = findViewById(R.id.btn_select_all)
+        btnBatchDelete = findViewById(R.id.btn_batch_delete)
+        btnBatchAddPlaylist = findViewById(R.id.btn_batch_add_playlist)
+        btnBatchFavorite = findViewById(R.id.btn_batch_favorite)
+        btnExitMultiSelect = findViewById(R.id.btn_exit_multi_select)
         
         topBar = findViewById(R.id.top_bar)
         topBarContainer = findViewById(R.id.top_bar_container)
@@ -174,9 +206,12 @@ class MainActivity : BaseActivity() {
 
         setupSearch()
         
-        // 🌟 Apply targeted glass effects (Children remain sharp)
-        GlassUtils.applyGlassEffect(topBarContainer, blurRadius = 25f, cornerRadius = 0f)
-        GlassUtils.applyGlassEffect(bottomPlayerContainer, blurRadius = 35f, cornerRadius = 100f)
+        // 🌟 绝对安全的玻璃效果应用：在视图渲染任务队列中执行
+        rvSongs.post {
+            GlassUtils.applyGlassEffect(topBarContainer, blurRadius = 25f, cornerRadius = 0f)
+            GlassUtils.applyGlassEffect(multiSelectContainer, blurRadius = 25f, cornerRadius = 0f)
+            GlassUtils.applyGlassEffect(bottomPlayerContainer, blurRadius = 80f, cornerRadius = 100f)
+        }
 
         bottomPlayerBar.setOnClickListener {
             val intent = Intent(this, PlayerActivity::class.java)
@@ -196,7 +231,8 @@ class MainActivity : BaseActivity() {
                     playFromLibrary(song)
                 }
             },
-            onItemLongClick = { song -> showLibraryOptions(song) }
+            onItemLongClick = { song -> showLibraryOptions(song) },
+            onSelectionChanged = { count -> updateSelectedCount(count) }
         )
         rvSongs.layoutManager = LinearLayoutManager(this)
         rvSongs.adapter = libraryAdapter
@@ -214,7 +250,65 @@ class MainActivity : BaseActivity() {
         btnScanLocal.setOnClickListener { requestPermissionsAndScan() }
         btnPlaylist.setOnClickListener { showPlaybackQueueDialog() }
         btnSettings.setOnClickListener { showSettingsDialog() }
+        btnEditList.setOnClickListener { enterMultiSelectMode() }
+        btnSearchIcon.setOnClickListener { expandSearch() }
+        btnBackSearch.setOnClickListener { collapseSearch() }
         ivMiniCover.setOnClickListener { showLyricsDialog() }
+
+        btnSelectAll.setOnClickListener {
+            val allSelected = libraryAdapter.getSelectedSongs().size == libraryAdapter.itemCount
+            libraryAdapter.selectAll(!allSelected)
+            btnSelectAll.text = if (!allSelected) getString(R.string.deselect_all) else getString(R.string.select_all)
+        }
+
+        btnBatchDelete.setOnClickListener {
+            val selected = libraryAdapter.getSelectedSongs()
+            if (selected.isEmpty()) return@setOnClickListener
+            
+            AlertDialog.Builder(this)
+                .setTitle("批量删除")
+                .setMessage("确定要从曲库移除选中的 ${selected.size} 首歌曲吗？")
+                .setPositiveButton("删除") { _, _ ->
+                    selected.forEach { deleteFromLibrary(it) }
+                    exitMultiSelectMode()
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        }
+
+        btnBatchAddPlaylist.setOnClickListener {
+            val selected = libraryAdapter.getSelectedSongs()
+            if (selected.isEmpty()) return@setOnClickListener
+            
+            mediaController?.let { controller ->
+                val items = selected.map { s ->
+                    MediaItem.Builder()
+                        .setUri(s.uri)
+                        .setMediaId(s.id.toString())
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle(s.title).setArtist(s.artist).build())
+                        .build()
+                }
+                controller.addMediaItems(items)
+                Toast.makeText(this, "已添加 ${selected.size} 首歌曲到播放队列", Toast.LENGTH_SHORT).show()
+                exitMultiSelectMode()
+            }
+        }
+
+        btnBatchFavorite.setOnClickListener {
+            val selected = libraryAdapter.getSelectedSongs()
+            if (selected.isEmpty()) return@setOnClickListener
+
+            // 逻辑：如果选中的里面有没收藏的，则全部设为收藏；如果全部已收藏，则全部取消收藏
+            val anyNotFavorite = selected.any { !it.isFavorite }
+            selected.forEach { it.isFavorite = anyNotFavorite }
+            
+            saveLibraryToDisk(masterSongList)
+            updateLibraryView()
+            Toast.makeText(this, if (anyNotFavorite) "已批量收藏" else "已取消批量收藏", Toast.LENGTH_SHORT).show()
+            exitMultiSelectMode()
+        }
+
+        btnExitMultiSelect.setOnClickListener { exitMultiSelectMode() }
         btnShowFavorites.setOnClickListener {
             isShowingFavorites = !isShowingFavorites
             updateLibraryView()
@@ -232,22 +326,10 @@ class MainActivity : BaseActivity() {
     }
 
     private fun setupSearch() {
-        searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
-            TransitionManager.beginDelayedTransition(topBar)
-            if (hasFocus) {
-                btnScanLocal.visibility = View.GONE
-                btnShowFavorites.visibility = View.GONE
-                btnSettings.visibility = View.GONE
-            } else {
-                btnScanLocal.visibility = View.VISIBLE
-                btnShowFavorites.visibility = View.VISIBLE
-                btnSettings.visibility = View.VISIBLE
-            }
-        }
-
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                return false
+                searchView.clearFocus()
+                return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -256,6 +338,56 @@ class MainActivity : BaseActivity() {
                 return true
             }
         })
+
+        // 监听搜索框的关闭按钮（叉号）
+        searchView.findViewById<ImageView>(androidx.appcompat.R.id.search_close_btn)?.setOnClickListener {
+            if (searchView.query.isNotEmpty()) {
+                searchView.setQuery("", false)
+            } else {
+                collapseSearch()
+            }
+        }
+    }
+
+    private fun expandSearch() {
+        TransitionManager.beginDelayedTransition(topBar)
+        btnSearchIcon.visibility = View.GONE
+        btnBackSearch.visibility = View.VISIBLE
+        searchView.visibility = View.VISIBLE
+        searchView.isIconified = false
+        
+        // 🌟 修复：延迟请求焦点和弹出键盘，确保 Transition 动画不会干扰焦点逻辑
+        searchView.postDelayed({
+            searchView.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            // 针对 SearchView 的内部 EditText 请求弹出
+            val searchEditText = searchView.findViewById<View>(androidx.appcompat.R.id.search_src_text)
+            imm.showSoftInput(searchEditText ?: searchView, InputMethodManager.SHOW_IMPLICIT)
+        }, 200)
+
+        // 隐藏其他按钮以腾出空间
+        btnScanLocal.visibility = View.GONE
+        btnShowFavorites.visibility = View.GONE
+        btnSettings.visibility = View.GONE
+        btnEditList.visibility = View.GONE
+    }
+
+    private fun collapseSearch() {
+        TransitionManager.beginDelayedTransition(topBar)
+        btnSearchIcon.visibility = View.VISIBLE
+        btnBackSearch.visibility = View.GONE
+        searchView.visibility = View.GONE
+        searchView.setQuery("", false)
+        searchView.clearFocus()
+
+        // 恢复其他按钮
+        btnScanLocal.visibility = View.VISIBLE
+        btnShowFavorites.visibility = View.VISIBLE
+        btnSettings.visibility = View.VISIBLE
+        btnEditList.visibility = View.VISIBLE
+
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(searchView.windowToken, 0)
     }
 
 
@@ -359,8 +491,21 @@ class MainActivity : BaseActivity() {
         val currentItem = controller.currentMediaItem ?: return
         val song = masterSongList.find { it.id.toString() == currentItem.mediaId } ?: return
 
-        val dialog = BottomSheetDialog(this)
+        val dialog = BottomSheetDialog(this, R.style.Theme_MusicPro_Transparent)
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_lyrics, null)
+        
+        dialog.setContentView(view)
+        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        
+        // 🌟 修复：在 show 之后或 DecorView 创建后再设置模糊，防止 NPE 闪退
+        dialog.show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog.window?.setBackgroundBlurRadius(80)
+        }
+        
+        val glassContainer = view.findViewById<ViewGroup>(R.id.lyrics_glass_container)
+        GlassUtils.applyGlassEffect(glassContainer, blurRadius = 40f, cornerRadius = 60f)
+
         view.findViewById<TextView>(R.id.tv_lyric_title).text = song.title
         view.findViewById<TextView>(R.id.tv_lyric_artist).text = song.artist
 
@@ -375,13 +520,23 @@ class MainActivity : BaseActivity() {
         }
 
         view.findViewById<TextView>(R.id.tv_lyrics_content).text = lyrics ?: "暂无内嵌歌词"
-        dialog.setContentView(view)
-        dialog.show()
     }
 
     private fun showSettingsDialog() {
-        val dialog = BottomSheetDialog(this)
+        val dialog = BottomSheetDialog(this, R.style.Theme_MusicPro_Transparent)
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_settings, null)
+        
+        dialog.setContentView(view)
+        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
+        dialog.show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog.window?.setBackgroundBlurRadius(80)
+        }
+        
+        val glassContainer = view.findViewById<ViewGroup>(R.id.settings_glass_container)
+        GlassUtils.applyGlassEffect(glassContainer, blurRadius = 40f, cornerRadius = 60f)
+
         val switchPause = view.findViewById<SwitchMaterial>(R.id.switch_pause_unplug)
         val switchAutoResume = view.findViewById<SwitchMaterial>(R.id.switch_auto_resume)
         val rgTheme = view.findViewById<RadioGroup>(R.id.rg_theme)
@@ -445,8 +600,6 @@ class MainActivity : BaseActivity() {
                 }
             }
         }
-        dialog.setContentView(view)
-        dialog.show()
     }
 
     private fun proceedWithThemeChange(prefs: android.content.SharedPreferences, newMode: Int, dialog: BottomSheetDialog) {
@@ -460,39 +613,125 @@ class MainActivity : BaseActivity() {
         }
     }
 
+    private fun showScanOptionsDialog() {
+        val options = arrayOf("全部扫描 (过滤短音频)", "指定文件夹扫描")
+        AlertDialog.Builder(this)
+            .setTitle("选择扫描方式")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> scanLocalMusic()
+                    1 -> pickFolderLauncher.launch(null)
+                }
+            }
+            .show()
+    }
+
     private fun scanLocalMusic() {
+        pbScanning.visibility = View.VISIBLE
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         val songs = mutableListOf<Song>()
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM_ID
+            MediaStore.Audio.Media.DURATION
         )
         
-        contentResolver.query(collection, projection, "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.DATE_ADDED} DESC")?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-            val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-            
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val title = cursor.getString(titleColumn) ?: "未知歌曲"
-                val artist = cursor.getString(artistColumn) ?: "未知艺术家"
-                val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+        // 增加时长过滤（> 60秒）
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 60000"
+        
+        Thread {
+            contentResolver.query(collection, projection, selection, null, "${MediaStore.Audio.Media.DATE_ADDED} DESC")?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
                 
-                songs.add(Song(id, title, artist, uri, null))
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val title = cursor.getString(titleColumn) ?: "未知歌曲"
+                    val artist = cursor.getString(artistColumn) ?: "未知艺术家"
+                    val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+                    
+                    songs.add(Song(id, title, artist, uri, null))
+                }
+            }
+            
+            runOnUiThread {
+                pbScanning.visibility = View.GONE
+                if (songs.isNotEmpty()) {
+                    masterSongList.clear()
+                    masterSongList.addAll(songs)
+                    saveLibraryToDisk(masterSongList)
+                    updateLibraryView()
+                    Toast.makeText(this, "扫描完成，找到 ${songs.size} 首歌曲", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "未找到符合条件的本地音乐", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun scanSpecificFolder(treeUri: Uri) {
+        pbScanning.visibility = View.VISIBLE
+        contentResolver.takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        
+        Thread {
+            val songs = mutableListOf<Song>()
+            val documentFile = DocumentFile.fromTreeUri(this, treeUri)
+            if (documentFile != null) {
+                traverseDirectory(documentFile, songs)
+            }
+            
+            runOnUiThread {
+                pbScanning.visibility = View.GONE
+                if (songs.isNotEmpty()) {
+                    val currentIds = masterSongList.map { it.id }.toSet()
+                    val newSongs = songs.filter { it.id !in currentIds }
+                    masterSongList.addAll(newSongs)
+                    
+                    saveLibraryToDisk(masterSongList)
+                    updateLibraryView()
+                    Toast.makeText(this, "扫描完成，新增 ${newSongs.size} 首歌曲", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "文件夹内未找到音频文件", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun traverseDirectory(dir: DocumentFile, songs: MutableList<Song>) {
+        val files = dir.listFiles()
+        for (file in files) {
+            if (file.isDirectory) {
+                traverseDirectory(file, songs)
+            } else {
+                val name = file.name ?: ""
+                if (name.endsWith(".mp3", true) || name.endsWith(".flac", true) || name.endsWith(".wav", true) || name.endsWith(".m4a", true)) {
+                    val song = extractMetadata(file.uri)
+                    if (song != null) songs.add(song)
+                }
             }
         }
-        
-        if (songs.isNotEmpty()) {
-            masterSongList.clear()
-            masterSongList.addAll(songs)
-            saveLibraryToDisk(masterSongList)
-            updateLibraryView()
-            Toast.makeText(this, "扫描完成，找到 ${songs.size} 首歌曲", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "未找到本地音乐文件", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun extractMetadata(uri: Uri): Song? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(this, uri)
+            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE) ?: "未知歌曲"
+            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "未知艺术家"
+            val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val duration = durationStr?.toLongOrNull() ?: 0L
+            
+            if (duration < 60000) return null // 同样过滤短音频
+            
+            // 使用 URI 的哈希作为 ID，或者使用文件名
+            val id = uri.toString().hashCode().toLong()
+            Song(id, title, artist, uri, null)
+        } catch (e: Exception) {
+            null
+        } finally {
+            retriever.release()
         }
     }
 
@@ -507,14 +746,28 @@ class MainActivity : BaseActivity() {
         controller.play()
     }
 
+    private fun deleteFromLibrary(song: Song) {
+        val index = masterSongList.indexOfFirst { it.id == song.id }
+        if (index != -1) {
+            if (mediaController?.currentMediaItem?.mediaId == song.id.toString()) {
+                mediaController?.removeMediaItem(libraryAdapter.getSongs().indexOf(song))
+                if (mediaController?.mediaItemCount == 0) mediaController?.stop()
+            }
+            masterSongList.removeAt(index)
+            saveLibraryToDisk(masterSongList)
+            updateLibraryView()
+        }
+    }
+
     private fun showLibraryOptions(song: Song) {
         val favoriteAction = if (song.isFavorite) "取消收藏" else "收藏"
         AlertDialog.Builder(this)
             .setTitle(song.title)
-            .setItems(arrayOf(favoriteAction, "从曲库移除")) { _, which ->
+            .setItems(arrayOf(favoriteAction, "从曲库移除", "多选模式")) { _, which ->
                 when (which) {
                     0 -> toggleFavorite(song)
                     1 -> deleteFromLibrary(song)
+                    2 -> enterMultiSelectMode()
                 }
             }
             .show()
@@ -527,16 +780,39 @@ class MainActivity : BaseActivity() {
         Toast.makeText(this, if (song.isFavorite) "已收藏" else "已取消收藏", Toast.LENGTH_SHORT).show()
     }
 
-    private fun deleteFromLibrary(song: Song) {
-        val index = masterSongList.indexOfFirst { it.id == song.id }
-        if (index != -1) {
-            if (mediaController?.currentMediaItem?.mediaId == song.id.toString()) {
-                mediaController?.removeMediaItem(libraryAdapter.getSongs().indexOf(song))
-                if (mediaController?.mediaItemCount == 0) mediaController?.stop()
-            }
-            masterSongList.removeAt(index)
-            saveLibraryToDisk(masterSongList)
-            updateLibraryView()
+    private fun enterMultiSelectMode() {
+        libraryAdapter.isMultiSelectMode = true
+        TransitionManager.beginDelayedTransition(topBarContainer)
+        multiSelectContainer.visibility = View.VISIBLE
+        topBar.visibility = View.GONE
+        bottomPlayerContainer.visibility = View.GONE
+        updateSelectedCount(0)
+    }
+
+    private fun exitMultiSelectMode() {
+        libraryAdapter.isMultiSelectMode = false
+        TransitionManager.beginDelayedTransition(topBarContainer)
+        multiSelectContainer.visibility = View.GONE
+        topBar.visibility = View.VISIBLE
+        bottomPlayerContainer.visibility = View.VISIBLE
+        btnSelectAll.text = getString(R.string.select_all)
+    }
+
+    private fun updateSelectedCount(count: Int) {
+        val actualCount = if (count == -1) libraryAdapter.getSelectedSongs().size else count
+        tvSelectedCount.text = getString(R.string.selected_count, actualCount)
+        
+        val allSelected = actualCount == libraryAdapter.itemCount && libraryAdapter.itemCount > 0
+        btnSelectAll.text = if (allSelected) getString(R.string.deselect_all) else getString(R.string.select_all)
+    }
+
+    override fun onBackPressed() {
+        if (libraryAdapter.isMultiSelectMode) {
+            exitMultiSelectMode()
+        } else if (searchView.visibility == View.VISIBLE) {
+            collapseSearch()
+        } else {
+            super.onBackPressed()
         }
     }
 
@@ -554,8 +830,19 @@ class MainActivity : BaseActivity() {
             queueSongs.add(song ?: Song(item.mediaId.toLongOrNull() ?: 0L, item.mediaMetadata.title?.toString() ?: "未知", uri = item.localConfiguration?.uri ?: Uri.EMPTY))
         }
 
-        val dialog = BottomSheetDialog(this)
+        val dialog = BottomSheetDialog(this, R.style.Theme_MusicPro_Transparent)
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_playlist, null)
+        
+        dialog.setContentView(view)
+        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+        
+        dialog.show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog.window?.setBackgroundBlurRadius(80)
+        }
+        
+        val glassContainer = view.findViewById<ViewGroup>(R.id.playlist_glass_container)
+        GlassUtils.applyGlassEffect(glassContainer, blurRadius = 40f, cornerRadius = 60f)
 
         val tvPlaylistCount = view.findViewById<TextView>(R.id.tv_playlist_count)
         tvPlaylistCount.text = "共 ${queueSongs.size} 首歌曲"
@@ -585,9 +872,6 @@ class MainActivity : BaseActivity() {
                 }
             }
         }).attachToRecyclerView(rv)
-
-        dialog.setContentView(view)
-        dialog.show()
     }
 
     private fun requestPermissionsAndScan() {

@@ -22,14 +22,40 @@
             android:paddingBottom="16dp"
             android:background="@android:color/transparent">
 
-            <androidx.appcompat.widget.SearchView
-                android:id="@+id/search_view"
+            <ImageView
+                android:id="@+id/btn_search_icon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_search"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <ImageView
+                android:id="@+id/btn_back_search"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_revert"
+                android:visibility="gone"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <FrameLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@null"
-                app:queryHint="搜索歌曲或艺术家..."
-                app:iconifiedByDefault="false" />
+                android:layout_weight="1">
+                <androidx.appcompat.widget.SearchView
+                    android:id="@+id/search_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    app:queryHint="搜索歌曲..."
+                    app:iconifiedByDefault="false"
+                    app:searchIcon="@null"
+                    android:visibility="gone" />
+            </FrameLayout>
 
             <Button
                 android:id="@+id/btn_scan_local"
@@ -37,7 +63,17 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="扫描"
-                android:textColor="?attr/colorPrimary" />
+                android:textColor="@color/btn_scan_text" />
+
+            <ImageView
+                android:id="@+id/btn_edit_list"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_edit"
+                app:tint="?android:attr/textColorPrimary" />
 
             <ImageView
                 android:id="@+id/btn_show_favorites"
@@ -68,8 +104,21 @@
         android:elevation="2dp"
         android:visibility="visible"
         android:background="#22FFFFFF"
-        app:layout_constraintBottom_toTopOf="@id/bottom_player_container"
+        android:paddingBottom="100dp"
+        android:clipToPadding="false"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/top_bar_container" />
+
+    <ProgressBar
+        android:id="@+id/pb_scanning"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:visibility="gone"
+        android:elevation="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tv_empty_state"
@@ -84,13 +133,99 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/top_bar_container" />
 
-    <!-- Z=1: Bottom Player Container (Glass will be injected at index 0) -->
+    <!-- Multi-select Action Bar (Integrated into Top) -->
+    <FrameLayout
+        android:id="@+id/multi_select_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:elevation="12dp"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:id="@+id/multi_select_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="40dp"
+            android:paddingBottom="16dp"
+            android:background="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/btn_exit_multi_select"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <TextView
+                android:id="@+id/tv_selected_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/selected_count"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btn_select_all"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="0dp"
+                android:paddingHorizontal="8dp"
+                android:text="@string/select_all"
+                android:textColor="@color/btn_scan_text" />
+
+            <ImageView
+                android:id="@+id/btn_batch_favorite"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/btn_star"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <ImageView
+                android:id="@+id/btn_batch_add_playlist"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_add"
+                app:tint="?android:attr/textColorPrimary" />
+
+            <ImageView
+                android:id="@+id/btn_batch_delete"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_delete"
+                app:tint="#FFFF5252" />
+
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Z=1: Bottom Player Container -->
     <FrameLayout
         android:id="@+id/bottom_player_container"
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="24dp"
+        android:elevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -146,7 +281,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/btn_play_pause"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="?attr/colorPrimary" />
+                app:tint="@color/playback_control_tint" />
 
             <ImageView
                 android:id="@+id/btn_play_pause"
@@ -159,7 +294,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/btn_next"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="?attr/colorPrimary" />
+                app:tint="@color/playback_control_tint" />
 
             <ImageView
                 android:id="@+id/btn_next"
@@ -172,7 +307,7 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@+id/btn_playlist"
                 app:layout_constraintTop_toTopOf="parent"
-                app:tint="?attr/colorPrimary" />
+                app:tint="@color/playback_control_tint" />
 
             <ImageView
                 android:id="@+id/btn_playlist"

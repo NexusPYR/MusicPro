@@ -9,6 +9,15 @@
     android:paddingHorizontal="20dp"
     android:paddingVertical="12dp">
 
+    <CheckBox
+        android:id="@+id/cb_select"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/iv_cover"
         android:layout_width="48dp"
@@ -17,8 +26,9 @@
         android:scaleType="centerCrop"
         android:src="@android:drawable/ic_menu_gallery"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/cb_select"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_goneMarginStart="0dp"
         app:shapeAppearanceOverlay="@style/RoundedSquare" />
 
     <TextView

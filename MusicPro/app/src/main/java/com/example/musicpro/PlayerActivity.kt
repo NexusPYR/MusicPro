@@ -56,8 +56,16 @@ class PlayerActivity : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        useFluidBackground = false
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
+        
+        // 🌟 核心修复：延迟设置窗口高斯模糊，确保 DecorView 已创建，防止闪退
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            window.decorView.post {
+                window.setBackgroundBlurRadius(80)
+            }
+        }
 
         // 绑定 UI
         ivRecordCover = findViewById(R.id.iv_record_cover)
@@ -74,8 +82,9 @@ class PlayerActivity : BaseActivity() {
         playerGlassContainer = findViewById(R.id.player_glass_container)
         dimView = findViewById(R.id.dim_view)
         
-        // 🌟 Apply targeted glass effect to the glass container (Children in player_content remain sharp)
-        GlassUtils.applyGlassEffect(playerGlassContainer, blurRadius = 45f, cornerRadius = 0f)
+        // 🌟 Apply targeted glass effect with rounded top corners for a "Sheet" look
+        // We use a large corner radius to make it look like a floating card
+        GlassUtils.applyGlassEffect(playerGlassContainer, blurRadius = 60f, cornerRadius = 80f)
 
         // 初始化旋转动画 (匀速，无限循环)
         rotationAnimator = ObjectAnimator.ofFloat(ivRecordCover, "rotation", 0f, 360f).apply {
@@ -112,12 +121,29 @@ class PlayerActivity : BaseActivity() {
                 if (isDragging || (deltaY > 30 && !isTouchOnView(ev, seekBar))) {
                     isDragging = true
                     if (deltaY > 0) {
-                        playerGlassContainer.translationY = deltaY
+                        // 🌟 THE NATURAL TRANSITION FIX:
+                        // Instead of moving the background "board", we move the CONTENT
+                        // and FADE the background.
+                        playerContent.translationY = deltaY
+                        
                         val progress = deltaY / playerGlassContainer.height
+                        
+                        // 1. Dimming fades out
                         dimView.alpha = (0.4f - (progress * 0.4f)).coerceIn(0f, 0.4f)
+                        
+                        // 2. Glass blur stays fixed but fades away like mist
+                        playerGlassContainer.alpha = (1f - progress * 1.2f).coerceIn(0f, 1f)
+                        
+                        // 3. Subtle scale effect on the cover only
+                        val scale = (1f - progress * 0.15f).coerceIn(0.85f, 1f)
+                        ivRecordCover.scaleX = scale
+                        ivRecordCover.scaleY = scale
                     } else {
-                        playerGlassContainer.translationY = 0f
+                        playerContent.translationY = 0f
+                        playerGlassContainer.alpha = 1f
                         dimView.alpha = 0.4f
+                        ivRecordCover.scaleX = 1f
+                        ivRecordCover.scaleY = 1f
                     }
                     return true 
                 }
@@ -125,12 +151,19 @@ class PlayerActivity : BaseActivity() {
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 if (isDragging) {
                     val deltaY = ev.rawY - initialY
-                    if (deltaY > playerGlassContainer.height * 0.4f) {
+                    if (deltaY > playerGlassContainer.height * 0.3f) {
                         finish()
                     } else {
-                        // 回弹动画
-                        playerGlassContainer.animate().translationY(0f).setDuration(250).start()
-                        dimView.animate().alpha(0.4f).setDuration(250).start()
+                        // 🌟 Smooth Bounce Back for content
+                        playerContent.animate()
+                            .translationY(0f)
+                            .setDuration(300)
+                            .setInterpolator(android.view.animation.DecelerateInterpolator())
+                            .start()
+                        
+                        ivRecordCover.animate().scaleX(1f).scaleY(1f).setDuration(300).start()
+                        playerGlassContainer.animate().alpha(1f).setDuration(300).start()
+                        dimView.animate().alpha(0.4f).setDuration(300).start()
                     }
                     isDragging = false
                     return true

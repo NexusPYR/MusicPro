@@ -24,10 +24,14 @@ abstract class BaseActivity : AppCompatActivity() {
     private var fluidShader: RuntimeShader? = null
     private var shaderAnimator: ValueAnimator? = null
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    
+    protected var useFluidBackground: Boolean = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setupFluidBackground()
+        if (useFluidBackground) {
+            setupFluidBackground()
+        }
     }
 
     private fun getThemeColor(@AttrRes attrRes: Int): Int {

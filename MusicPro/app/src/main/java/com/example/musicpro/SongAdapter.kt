@@ -3,6 +3,7 @@ package com.example.musicpro
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
@@ -11,8 +12,18 @@ import androidx.recyclerview.widget.RecyclerView
 class SongAdapter(
     private var songList: MutableList<Song>,
     private val onItemClick: (Song) -> Unit,
-    private val onItemLongClick: (Song) -> Unit
+    private val onItemLongClick: (Song) -> Unit,
+    private val onSelectionChanged: (Int) -> Unit = {}
 ) : RecyclerView.Adapter<SongAdapter.SongViewHolder>() {
+
+    var isMultiSelectMode: Boolean = false
+        set(value) {
+            field = value
+            if (!value) {
+                songList.forEach { it.isSelected = false }
+            }
+            notifyDataSetChanged()
+        }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_song, parent, false)
@@ -21,7 +32,7 @@ class SongAdapter(
 
     override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
         val song = songList[position]
-        holder.bind(song, onItemClick, onItemLongClick)
+        holder.bind(song, isMultiSelectMode, onItemClick, onItemLongClick, onSelectionChanged)
     }
 
     override fun getItemCount(): Int = songList.size
@@ -33,10 +44,22 @@ class SongAdapter(
         songList.clear()
         songList.addAll(newSongs)
         diffResult.dispatchUpdatesTo(this)
+        // 🌟 强力刷新，解决 swiped 后扫描显示不出来的问题
+        notifyDataSetChanged()
     }
     
     fun getSongs(): List<Song> {
         return songList
+    }
+
+    fun getSelectedSongs(): List<Song> {
+        return songList.filter { it.isSelected }
+    }
+
+    fun selectAll(select: Boolean) {
+        songList.forEach { it.isSelected = select }
+        notifyDataSetChanged()
+        onSelectionChanged(getSelectedSongs().size)
     }
     
     fun onItemDismiss(position: Int) {
@@ -49,8 +72,15 @@ class SongAdapter(
         private val tvArtist: TextView = itemView.findViewById(R.id.tv_artist)
         private val ivCover: ImageView = itemView.findViewById(R.id.iv_cover)
         private val ivFavorite: ImageView = itemView.findViewById(R.id.iv_favorite)
+        private val cbSelect: CheckBox = itemView.findViewById(R.id.cb_select)
 
-        fun bind(song: Song, click: (Song) -> Unit, longClick: (Song) -> Unit) {
+        fun bind(
+            song: Song,
+            isMultiSelect: Boolean,
+            click: (Song) -> Unit,
+            longClick: (Song) -> Unit,
+            selectionChanged: (Int) -> Unit
+        ) {
             tvTitle.text = song.title
             tvArtist.text = song.artist
             
@@ -69,7 +99,6 @@ class SongAdapter(
                         } else null
                         
                         if (bitmap != null) {
-                            // 通过反射或其他方式更新内存中的 song 对象（这里简单起见直接设置到 View）
                             ivCover.post {
                                 ivCover.setImageBitmap(bitmap)
                             }
@@ -78,10 +107,31 @@ class SongAdapter(
                 }.start()
             }
             
-            ivFavorite.visibility = if (song.isFavorite) View.VISIBLE else View.GONE
+            ivFavorite.visibility = if (song.isFavorite && !isMultiSelect) View.VISIBLE else View.GONE
 
-            itemView.setOnClickListener { click(song) }
-            itemView.setOnLongClickListener { longClick(song); true }
+            cbSelect.visibility = if (isMultiSelect) View.VISIBLE else View.GONE
+            cbSelect.isChecked = song.isSelected
+
+            cbSelect.setOnClickListener {
+                song.isSelected = cbSelect.isChecked
+                selectionChanged(-1) // Signal that something changed, count will be recalculated
+            }
+
+            itemView.setOnClickListener {
+                if (isMultiSelect) {
+                    song.isSelected = !song.isSelected
+                    cbSelect.isChecked = song.isSelected
+                    selectionChanged(-1)
+                } else {
+                    click(song)
+                }
+            }
+            itemView.setOnLongClickListener { 
+                if (!isMultiSelect) {
+                    longClick(song)
+                }
+                true 
+            }
         }
     }
 

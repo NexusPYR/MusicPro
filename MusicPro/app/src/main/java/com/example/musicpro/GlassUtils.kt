@@ -50,6 +50,12 @@ object GlassUtils {
         }
         glassBg.background = shape
         glassBg.clipToOutline = true
+        
+        // 🌟 Ensure parent is also transparent to avoid blocking the glass effect
+        container.background = null
+        if (container.parent is View) {
+            (container.parent as View).background = null
+        }
 
         // 4. Apply RenderEffect blur ONLY to this background view (API 31+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
