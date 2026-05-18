@@ -41,6 +41,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation("com.airbnb.android:lottie:6.4.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -51,4 +52,5 @@ dependencies {
     // ExoPlayer 核心 UI 组件 (后面写界面会用到)
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("com.google.android.material:material:1.11.0") // 版本号可能略有不同，用你现有的即可
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

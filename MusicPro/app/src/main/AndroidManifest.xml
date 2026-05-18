@@ -31,7 +31,8 @@
         <activity
             android:name=".PlayerActivity"
             android:exported="false"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.MusicPro.Transparent" />
 
         <service
             android:name=".PlaybackService"

@@ -9,5 +9,6 @@ data class Song(
     val artist: String? = "未知艺术家",
     val uri: Uri,
     val cover: Bitmap? = null,
-    var isFavorite: Boolean = false // 🌟 新增：用于标记是否收藏
+    var isFavorite: Boolean = false,
+    var isSelected: Boolean = false // 🌟 新增：用于标记多选状态
 )

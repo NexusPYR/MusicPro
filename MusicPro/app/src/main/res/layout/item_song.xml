@@ -9,16 +9,26 @@
     android:paddingHorizontal="20dp"
     android:paddingVertical="12dp">
 
+    <CheckBox
+        android:id="@+id/cb_select"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/iv_cover"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:background="?attr/colorSurfaceVariant"
         android:scaleType="centerCrop"
-        android:src="@android:drawable/ic_menu_gallery"
+        android:src="@drawable/ic_music_note"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/cb_select"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_goneMarginStart="0dp"
         app:shapeAppearanceOverlay="@style/RoundedSquare" />
 
     <TextView
@@ -58,7 +68,7 @@
         android:id="@+id/iv_favorite"
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:src="@android:drawable/btn_star_big_on"
+        android:src="@drawable/ic_favorite"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"

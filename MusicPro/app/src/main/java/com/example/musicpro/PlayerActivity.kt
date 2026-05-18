@@ -4,22 +4,25 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.ComponentName
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import android.media.MediaMetadataRetriever
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 
-class PlayerActivity : AppCompatActivity() {
+class PlayerActivity : BaseActivity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -35,6 +38,12 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var tvTimeTotal: TextView
     private lateinit var seekBar: SeekBar
 
+    private lateinit var playerContent: View
+    private lateinit var playerGlassContainer: ViewGroup
+    private lateinit var dimView: View
+    private var initialY = 0f
+    private var isDragging = false
+
     // 旋转动画器
     private var rotationAnimator: ObjectAnimator? = null
     // 更新进度条的定时器
@@ -47,8 +56,16 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        useFluidBackground = false
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_player)
+        
+        // 🌟 核心修复：延迟设置窗口高斯模糊，确保 DecorView 已创建，防止闪退
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            window.decorView.post {
+                window.setBackgroundBlurRadius(80)
+            }
+        }
 
         // 绑定 UI
         ivRecordCover = findViewById(R.id.iv_record_cover)
@@ -61,6 +78,13 @@ class PlayerActivity : AppCompatActivity() {
         tvTimeCurrent = findViewById(R.id.tv_time_current)
         tvTimeTotal = findViewById(R.id.tv_time_total)
         seekBar = findViewById(R.id.seek_bar)
+        playerContent = findViewById(R.id.player_content)
+        playerGlassContainer = findViewById(R.id.player_glass_container)
+        dimView = findViewById(R.id.dim_view)
+        
+        // 🌟 Apply targeted glass effect with rounded top corners for a "Sheet" look
+        // We use a large corner radius to make it look like a floating card
+        GlassUtils.applyGlassEffect(playerGlassContainer, blurRadius = 60f, cornerRadius = 80f)
 
         // 初始化旋转动画 (匀速，无限循环)
         rotationAnimator = ObjectAnimator.ofFloat(ivRecordCover, "rotation", 0f, 360f).apply {
@@ -82,6 +106,88 @@ class PlayerActivity : AppCompatActivity() {
             },
             ContextCompat.getMainExecutor(this)
         )
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                initialY = ev.rawY
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val currentY = ev.rawY
+                val deltaY = currentY - initialY
+                
+                // 只有当不是在 SeekBar 上操作且有明显向下滑动趋势时才拦截
+                if (isDragging || (deltaY > 30 && !isTouchOnView(ev, seekBar))) {
+                    isDragging = true
+                    if (deltaY > 0) {
+                        // 🌟 THE NATURAL TRANSITION FIX:
+                        // Instead of moving the background "board", we move the CONTENT
+                        // and FADE the background.
+                        playerContent.translationY = deltaY
+                        
+                        val progress = deltaY / playerGlassContainer.height
+                        
+                        // 1. Dimming fades out
+                        dimView.alpha = (0.4f - (progress * 0.4f)).coerceIn(0f, 0.4f)
+                        
+                        // 2. Glass blur stays fixed but fades away like mist
+                        playerGlassContainer.alpha = (1f - progress * 1.2f).coerceIn(0f, 1f)
+                        
+                        // 3. Subtle scale effect on the cover only
+                        val scale = (1f - progress * 0.15f).coerceIn(0.85f, 1f)
+                        ivRecordCover.scaleX = scale
+                        ivRecordCover.scaleY = scale
+                    } else {
+                        playerContent.translationY = 0f
+                        playerGlassContainer.alpha = 1f
+                        dimView.alpha = 0.4f
+                        ivRecordCover.scaleX = 1f
+                        ivRecordCover.scaleY = 1f
+                    }
+                    return true 
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                if (isDragging) {
+                    val deltaY = ev.rawY - initialY
+                    if (deltaY > playerGlassContainer.height * 0.3f) {
+                        finish()
+                    } else {
+                        // 🌟 Smooth Bounce Back for content
+                        playerContent.animate()
+                            .translationY(0f)
+                            .setDuration(300)
+                            .setInterpolator(android.view.animation.DecelerateInterpolator())
+                            .start()
+                        
+                        ivRecordCover.animate().scaleX(1f).scaleY(1f).setDuration(300).start()
+                        playerGlassContainer.animate().alpha(1f).setDuration(300).start()
+                        dimView.animate().alpha(0.4f).setDuration(300).start()
+                    }
+                    isDragging = false
+                    return true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun isTouchOnView(ev: MotionEvent, view: View): Boolean {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        val rect = Rect(location[0], location[1], location[0] + view.width, location[1] + view.height)
+        return rect.contains(ev.rawX.toInt(), ev.rawY.toInt())
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.stay, R.anim.slide_out_down)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        super.onBackPressed()
     }
 
     private fun setupController() {
@@ -145,7 +251,7 @@ class PlayerActivity : AppCompatActivity() {
                     val bitmap = BitmapFactory.decodeByteArray(artwork, 0, artwork.size)
                     ivRecordCover.setImageBitmap(bitmap)
                 } else {
-                    ivRecordCover.setImageResource(android.R.drawable.ic_media_play)
+                    ivRecordCover.setImageResource(R.drawable.ic_play)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -159,12 +265,12 @@ class PlayerActivity : AppCompatActivity() {
     private fun updatePlaybackState() {
         val controller = mediaController ?: return
         if (controller.isPlaying) {
-            btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+            btnPlayPause.setImageResource(R.drawable.ic_pause)
             if (rotationAnimator?.isStarted == false) rotationAnimator?.start()
             else rotationAnimator?.resume()
             handler.post(progressRunnable) // 开启进度条更新
         } else {
-            btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
+            btnPlayPause.setImageResource(R.drawable.ic_play)
             rotationAnimator?.pause()
             handler.removeCallbacks(progressRunnable) // 停止进度条更新
         }
