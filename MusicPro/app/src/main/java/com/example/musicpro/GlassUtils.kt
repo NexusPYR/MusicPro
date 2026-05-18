@@ -14,7 +14,7 @@ object GlassUtils {
      * Applies a glassmorphism effect ONLY to the background of a container.
      * The children of the container remain sharp and unaffected by the blur.
      */
-    fun applyGlassEffect(container: ViewGroup, blurRadius: Float = 30f, cornerRadius: Float = 40f) {
+    fun applyGlassEffect(container: ViewGroup, blurRadius: Float = 20f, cornerRadius: Float = 40f) {
         val context = container.context
         
         // 1. Check if we already have a glass background

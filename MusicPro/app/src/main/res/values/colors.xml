@@ -20,6 +20,6 @@
     <color name="player_icon_bright">#FFFFFF</color>
 
     <!-- Glassmorphism Colors - Refined for Light Mode (Frosted texture) -->
-    <color name="glass_fill">#4DFFFFFF</color>
-    <color name="glass_stroke">#22000000</color>
+    <color name="glass_fill">#99FFFFFF</color>
+    <color name="glass_stroke">#33000000</color>
 </resources>
