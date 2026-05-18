@@ -20,6 +20,4 @@
     <color name="player_icon_bright">#FFFFFF</color>
 
     <!-- Glassmorphism Colors - Refined for Dark Mode -->
-    <color name="glass_fill">#99121212</color>
-    <color name="glass_stroke">#4DFFFFFF</color>
 </resources>
