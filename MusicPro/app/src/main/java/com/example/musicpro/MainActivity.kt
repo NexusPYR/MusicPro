@@ -33,6 +33,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewAnimationUtils
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.ImageView
@@ -48,8 +49,6 @@ import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -63,6 +62,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.media3.common.Player
+import androidx.media3.common.MediaMetadata
 
 class MainActivity : BaseActivity() {
 
@@ -404,8 +405,6 @@ class MainActivity : BaseActivity() {
         imm.hideSoftInputFromWindow(searchView.windowToken, 0)
     }
 
-
-
     private fun setupController() {
         val controller = mediaController ?: return
         
@@ -684,7 +683,6 @@ class MainActivity : BaseActivity() {
                     if (title.contains("录音", true) || title.contains("电话", true)) {
                         continue
                     }
-
                     val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
                     
                     songs.add(Song(id, title, artist, uri, null))
@@ -811,18 +809,52 @@ class MainActivity : BaseActivity() {
     }
 
     private fun showLibraryOptions(song: Song) {
-        val favoriteAction = if (song.isFavorite) "取消收藏" else "收藏"
-        AlertDialog.Builder(this)
-            .setTitle(song.title)
-            .setItems(arrayOf(favoriteAction, "查看详细信息", "从曲库移除", "多选模式")) { _, which ->
-                when (which) {
-                    0 -> toggleFavorite(song)
-                    1 -> showSongDetails(song)
-                    2 -> deleteFromLibrary(song)
-                    3 -> enterMultiSelectMode()
-                }
-            }
-            .show()
+        val dialog = BottomSheetDialog(this, R.style.Theme_MusicPro_Transparent)
+        val view = LayoutInflater.from(this).inflate(R.layout.dialog_song_options, null)
+        dialog.setContentView(view)
+        dialog.window?.setWindowAnimations(R.style.BottomDialogAnimation)
+        dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)?.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+
+        dialog.show()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog.window?.setBackgroundBlurRadius(80)
+        }
+
+        val glassContainer = view.findViewById<ViewGroup>(R.id.options_glass_container)
+        GlassUtils.applyGlassEffect(glassContainer, blurRadius = 40f, cornerRadius = 60f)
+
+        view.findViewById<TextView>(R.id.tv_options_title).text = song.title
+        
+        val ivFavorite = view.findViewById<ImageView>(R.id.iv_favorite_icon)
+        val tvFavorite = view.findViewById<TextView>(R.id.tv_favorite_text)
+        
+        if (song.isFavorite) {
+            ivFavorite.setImageResource(R.drawable.ic_favorite)
+            tvFavorite.text = "取消收藏"
+        } else {
+            ivFavorite.setImageResource(R.drawable.ic_favorite_border)
+            tvFavorite.text = "收藏"
+        }
+
+        view.findViewById<View>(R.id.item_favorite).setOnClickListener {
+            toggleFavorite(song)
+            dialog.dismiss()
+        }
+        
+        view.findViewById<View>(R.id.item_details).setOnClickListener {
+            showSongDetails(song)
+            dialog.dismiss()
+        }
+        
+        view.findViewById<View>(R.id.item_multi_select).setOnClickListener {
+            enterMultiSelectMode()
+            dialog.dismiss()
+        }
+        
+        view.findViewById<View>(R.id.item_delete).setOnClickListener {
+            deleteFromLibrary(song)
+            dialog.dismiss()
+        }
     }
 
     private fun showSongDetails(song: Song) {
@@ -846,7 +878,6 @@ class MainActivity : BaseActivity() {
                 }
             }
         } catch (e: Exception) {
-            // 如果 MediaStore 查询失败（比如是 SAF Tree Uri 的文件），尝试使用 DocumentFile
             try {
                 DocumentFile.fromSingleUri(this, song.uri)?.let { file ->
                     if (file.exists()) {
@@ -857,20 +888,43 @@ class MainActivity : BaseActivity() {
             } catch (_: Exception) {}
         }
 
+        val view = layoutInflater.inflate(R.layout.dialog_song_details, null)
         val dialog = AlertDialog.Builder(this)
-            .setTitle("歌曲详情")
-            .setMessage("标题：${song.title}\n艺术家：${song.artist ?: "未知"}\n文件大小：$sizeStr\n文件路径：$pathStr")
-            .setPositiveButton("确定", null)
-            .setNeutralButton("复制路径") { _, _ ->
-                copyToClipboard(pathStr)
-            }
-            .show()
+            .setView(view)
+            .create()
 
-        // 🌟 长按文本内容也可触发复制
-        dialog.findViewById<TextView>(android.R.id.message)?.setOnLongClickListener {
-            copyToClipboard(pathStr)
-            true
+        dialog.window?.let { window ->
+            window.setBackgroundDrawableResource(android.R.color.transparent)
+            // 🌟 调暗背景，与长按菜单保持一致（如果长按菜单没有特殊设置，通常是 0.3-0.5）
+            window.setDimAmount(0.3f) 
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            
+            // 🌟 核心：为背景添加高斯模糊 (API 31+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                // 🌟 将模糊半径从 40 提高到 80，与 showLibraryOptions (长按菜单) 保持一致
+                window.attributes.blurBehindRadius = 80
+            }
         }
+
+        view.findViewById<TextView>(R.id.tv_detail_title).text = song.title
+        view.findViewById<TextView>(R.id.tv_detail_artist).text = song.artist ?: "未知"
+        view.findViewById<TextView>(R.id.tv_detail_size).text = sizeStr
+        view.findViewById<TextView>(R.id.tv_detail_path).text = pathStr
+
+        view.findViewById<Button>(R.id.btn_copy_path).setOnClickListener {
+            copyToClipboard(pathStr)
+        }
+
+        view.findViewById<Button>(R.id.btn_close_details).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        val container = view.findViewById<ViewGroup>(R.id.details_glass_container)
+        // 🌟 调整卡片本身的模糊和圆角，与长按菜单 (blurRadius=40f, cornerRadius=60f) 保持一致
+        GlassUtils.applyGlassEffect(container, blurRadius = 40f, cornerRadius = 60f)
+
+        dialog.show()
     }
 
     private fun copyToClipboard(text: String) {

@@ -1,4 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="md_theme_primary">#5C6BC0</color>
+
+    <!-- Player Colors - Always bright for visibility on player background -->
+    <color name="player_background">#121212</color>
+    <color name="player_text_primary">#FFFFFF</color>
+    <color name="player_text_secondary">#BDBDBD</color>
+    <color name="player_text_tertiary">#BDBDBD</color>
+    <color name="player_icon_tint">#FFFFFF</color>
+    <color name="player_cover_stroke">#33FFFFFF</color>
+
+    <!-- Scan Button Color -->
+    <color name="btn_scan_text">#000000</color>
+
+    <!-- Control Icon Colors -->
+    <color name="playback_control_tint">#000000</color>
+
+    <!-- Player Detail Page Icons - Always bright for visibility on album art/blur -->
+    <color name="player_icon_bright">#FFFFFF</color>
+
+    <!-- Glassmorphism Colors - Refined for Light Mode (Frosted texture) -->
+    <color name="glass_fill">#99FFFFFF</color>
+    <color name="glass_stroke">#33000000</color>
 </resources>
