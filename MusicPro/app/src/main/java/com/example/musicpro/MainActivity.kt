@@ -634,16 +634,40 @@ class MainActivity : BaseActivity() {
     }
 
     private fun showScanOptionsDialog() {
-        val options = arrayOf("全部扫描 (过滤短音频)", "指定文件夹扫描")
-        AlertDialog.Builder(this)
-            .setTitle("选择扫描方式")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> scanLocalMusic()
-                    1 -> pickFolderLauncher.launch(null)
-                }
+        val view = layoutInflater.inflate(R.layout.dialog_scan_options, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        dialog.window?.let { window ->
+            window.setBackgroundDrawableResource(android.R.color.transparent)
+            window.setDimAmount(0.3f)
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes.blurBehindRadius = 80
             }
-            .show()
+        }
+
+        view.findViewById<View>(R.id.btn_scan_all).setOnClickListener {
+            scanLocalMusic()
+            dialog.dismiss()
+        }
+
+        view.findViewById<View>(R.id.btn_scan_folder).setOnClickListener {
+            pickFolderLauncher.launch(null)
+            dialog.dismiss()
+        }
+
+        view.findViewById<View>(R.id.btn_cancel_scan).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        val container = view.findViewById<ViewGroup>(R.id.scan_glass_container)
+        GlassUtils.applyGlassEffect(container, blurRadius = 40f, cornerRadius = 60f)
+
+        dialog.show()
     }
 
     private fun scanLocalMusic() {
