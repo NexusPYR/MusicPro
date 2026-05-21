@@ -11,4 +11,7 @@
     <string name="scan_folder">指定文件夹扫描</string>
     <string name="scan_folder_desc">从特定的目录中添加音乐</string>
     <string name="cancel">取消</string>
+    <string name="ncm_unsupported_title">不支持的格式</string>
+    <string name="ncm_unsupported_message">由于格式限制，暂不支持本地解密 NCM 文件。建议使用在线工具进行转换，转换完成后再将其添加到曲库。</string>
+    <string name="go_to_convert">前往在线转换</string>
 </resources>

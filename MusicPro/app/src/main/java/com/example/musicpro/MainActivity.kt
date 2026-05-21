@@ -757,15 +757,36 @@ class MainActivity : BaseActivity() {
     }
 
     private fun convertFile(uri: Uri) {
-        AlertDialog.Builder(this)
-            .setTitle("不支持的格式")
-            .setMessage("由于格式限制，暂不支持本地解密 NCM 文件。建议使用在线工具进行转换，转换完成后再将其添加到曲库。")
-            .setPositiveButton("前往在线转换") { _, _ ->
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://ncm.worthsee.com/"))
-                startActivity(intent)
+        val view = layoutInflater.inflate(R.layout.dialog_ncm_unsupported, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(view)
+            .create()
+
+        dialog.window?.let { window ->
+            window.setBackgroundDrawableResource(android.R.color.transparent)
+            window.setDimAmount(0.3f)
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes.blurBehindRadius = 80
             }
-            .setNegativeButton("取消", null)
-            .show()
+        }
+
+        view.findViewById<View>(R.id.btn_go_convert).setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://ncm.worthsee.com/"))
+            startActivity(intent)
+            dialog.dismiss()
+        }
+
+        view.findViewById<View>(R.id.btn_cancel_ncm).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        val container = view.findViewById<ViewGroup>(R.id.ncm_glass_container)
+        GlassUtils.applyGlassEffect(container, blurRadius = 40f, cornerRadius = 60f)
+
+        dialog.show()
     }
 
     private fun traverseDirectory(dir: DocumentFile, songs: MutableList<Song>) {
