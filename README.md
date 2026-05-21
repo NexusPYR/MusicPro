@@ -83,7 +83,8 @@ Music Pro 是一款专注于提供纯粹、高解析度本地听歌体验的 And
 <img width="390" height="854" alt="VID_20260521_212703" src="https://github.com/user-attachments/assets/aaad4cfc-b372-4ad5-a5a5-f44a9483fd85" />
 
 * **👆长按选择功能**
-<img width="40%" alt="Screenshot" src="https://github.com/user-attachments/assets/d40e5e99-91c5-450a-b034-bcee58ce148d" />
+<img width="40%" alt="Screenshot" src="https://github.com/user-attachments/assets/1caebf00-af69-43d8-9240-d02bc1b5eadb" />
+
 
 * **📋查看歌曲详细信息**
 <img width="40%" alt="Screenshot" src="https://github.com/user-attachments/assets/6ba9fe86-dabb-4dd3-af4c-109af640ff91" />
